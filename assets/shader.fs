@@ -1,122 +1,83 @@
-mat2 rot(float x)
+
+#define MAX_STEPS 100
+#define MAX_DIST 100.
+#define SURF_DIST .01
+
+struct Camera
 {
-    return mat2(cos(x), sin(x), -sin(x), cos(x));
+    vec3 position;
+    vec3 direction;
+};
+
+float getDistance(vec3 point)
+{
+    vec4 sphere = vec4(0, 1., 6., 1.);
+    float distanceToSphere = length(point - sphere.xyz) - sphere.w;
+    float distanceToPlane = point.y;
+    return min(distanceToSphere, distanceToPlane);
 }
 
-float sdBox(vec3 p, vec3 b)
+vec3 getNormal(vec3 point)
 {
-    vec3 d = abs(p) - b;
-    return min(max(d.x, max(d.y, d.z)), 0.0) + length(max(d, 0.0));
+    vec2 e = vec2(.01, 0);
+    float distanceToPoint = getDistance(point);
+    vec3 n = vec3(
+        distanceToPoint - getDistance(point - e.xyy),
+        distanceToPoint - getDistance(point - e.yxy),
+        distanceToPoint - getDistance(point - e.yyx));
+
+    return normalize(n);
 }
 
-vec3 tri(vec3 x)
+float rayMarch(vec3 rayOrigin, vec3 rayDirection)
 {
-    return abs(2.0 * (x - floor(x + 0.5))) * 2.0 - 1.0;
-}
+    float distanceToOrigin = 0;
 
-float scale = 0.25;
-vec3 texw;
-float mapw;
-
-float map(vec3 p)
-{
-    mapw = 0.0;
-
-    p.x += sin(p.z * scale);
-    p.y += cos(p.z * scale) * sin(p.z * scale);
-
-    vec3 q = p;
-
-    float d = 1000.0;
-
-    vec3 s = vec3(1.0, 0.125, 0.125);
-
-    float u = 1.0;
-
-    float gt = p.z;
-
-    q = tri(q * 0.125);
-
-    const int n = 4;
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < MAX_STEPS; i++)
     {
-
-        float fi = float(i) / float(n - 1);
-
-        q = abs(q) - u;
-
-        q.xy *= rot(q.z + gt);
-
-        float k = sdBox(q, s);
-
-        if (k < d)
-        {
-            d = k;
-            texw = q;
-            mapw = float(i);
-        }
-
-        s = s.yzx;
-        s *= 0.5;
-        u *= 0.5;
+        vec3 point = rayOrigin + rayDirection * distanceToOrigin;
+        float distanceToScene = getDistance(point);
+        distanceToOrigin += distanceToScene;
+        if (distanceToOrigin > MAX_DIST || distanceToScene < SURF_DIST)
+            break;
     }
 
-    d = max(d, 2.0 - length(p.xy));
-
-    return d;
+    return distanceToOrigin;
 }
 
-float trace(vec3 o, vec3 r)
+float getLight(vec3 point)
 {
-    float t = 0.0;
-    for (int i = 0; i < 64; ++i)
-    {
-        t += map(o + r * t) * 0.5;
-    }
-    return t;
-}
+#define LIGHT_PATH_RADIOUS 2.
+    vec3 lightPosition = vec3(0, 5, 6);
+    lightPosition.x = cos(iTime * 2.) * LIGHT_PATH_RADIOUS;
+    lightPosition.z = 6 + sin(iTime * 2.) * LIGHT_PATH_RADIOUS;
+    vec3 lightPosNormalized = normalize(lightPosition - point);
+    vec3 n = getNormal(point);
+    float diffuse = clamp(dot(n, lightPosNormalized), 0., 1.);
 
-vec3 textex(sampler2D channel, vec3 p)
-{
-    vec3 ta = texture(channel, p.xy).xyz;
-    vec3 tb = texture(channel, p.yz).xyz;
-    vec3 tc = texture(channel, p.xz).xyz;
-    return (ta * ta + tb * tb + tc * tc) / 3.0;
+    float d = rayMarch(point + n * SURF_DIST * 2., lightPosNormalized);
+
+    if (d < length(lightPosition - point))
+        diffuse *= .1;
+
+    return diffuse;
 }
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
-    vec2 uv = fragCoord.xy / iResolution.xy;
-    uv = uv * 2.0 - 1.0;
-    uv.x *= iResolution.x / iResolution.y;
-    uv *= 2.5;
+    vec2 uv = (fragCoord - .5 * iResolution.xy) / iResolution.y;
 
-    vec3 o = vec3(0.0, 0.0, iTime * 2.0);
-    vec3 r = normalize(vec3(uv, 1.5));
+    vec3 light = vec3(0, 0, 5);
 
-    o.x = -sin(o.z * scale);
-    o.y = -cos(o.z * scale) * sin(o.z * scale);
+    Camera camera;
+    camera.position = vec3(0, 1, 0);
+    camera.direction = normalize(vec3(uv.xy, 1.));
 
-    r.xy *= rot(iTime * 0.2);
+    float distance = rayMarch(camera.position, camera.direction);
 
-    float t = trace(o, r);
-    vec3 w = o + r * t;
-    float fd = map(w);
+    vec3 collisionPoint = camera.position + camera.direction * distance;
 
-    vec3 tex1 = textex(iChannel0, texw);
-    tex1 = 1.0 - pow(1.0 - tex1, vec3(2.0));
-    vec3 tex2 = textex(iChannel1, texw);
-    tex2 = 1.0 - pow(1.0 - tex2, vec3(2.0, 3.0, 2.0));
+    vec4 col = vec4(vec3(getLight(collisionPoint)), 1.);
 
-    vec3 tex = tex1;
-    if (mapw > 2.0)
-    {
-        tex = tex2;
-    }
-
-    float fog = 1.0 / (1.0 + t * t * t * 0.01 + fd * 100.0);
-
-    vec3 fc = tex * vec3(fog);
-
-    fragColor = vec4(sqrt(fc), 1.0);
+    fragColor = col;
 }
