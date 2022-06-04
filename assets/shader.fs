@@ -9,12 +9,51 @@ struct Camera
     vec3 direction;
 };
 
+struct Torus
+{
+    vec2 radiouses;
+    vec3 position;
+};
+
+struct Box
+{
+    vec3 size;
+    vec3 position;
+};
+
+float getSphereDistance(vec4 sphere, vec3 point)
+{
+    return length(point - sphere.xyz) - sphere.w;
+}
+
+float getTorusDistance(Torus torus, vec3 point)
+{
+    vec3 position = point - torus.position;
+    float x = length(position.xz) - torus.radiouses.x;
+    return length(vec2(x, position.y)) - torus.radiouses.y;
+}
+
+float getBoxDistance(Box box, vec3 point)
+{
+    return length(max(abs(point - box.position) - box.size, 0.));
+}
+
 float getDistance(vec3 point)
 {
     vec4 sphere = vec4(0, 1., 6., 1.);
-    float distanceToSphere = length(point - sphere.xyz) - sphere.w;
+    Torus torus;
+    torus.radiouses = vec2(2., .3);
+    torus.position = vec3(-1., .5, 6.);
+    float distanceToSphere = getSphereDistance(sphere, point);
+    float distanceToTorus = getTorusDistance(torus, point);
     float distanceToPlane = point.y;
-    return min(distanceToSphere, distanceToPlane);
+
+    Box box;
+    box.size = vec3(.5);
+    box.position = vec3(-2., .5, 6.);
+
+    float distanceToBox = getBoxDistance(box, point);
+    return min(min(min(distanceToSphere, distanceToPlane), distanceToTorus), distanceToBox);
 }
 
 vec3 getNormal(vec3 point)
@@ -70,8 +109,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec3 light = vec3(0, 0, 5);
 
     Camera camera;
-    camera.position = vec3(0, 1, 0);
-    camera.direction = normalize(vec3(uv.xy, 1.));
+    camera.position = vec3(0, 3., -5.);
+    camera.direction = normalize(vec3(uv.x, uv.y - .3, 1.));
 
     float distance = rayMarch(camera.position, camera.direction);
 
