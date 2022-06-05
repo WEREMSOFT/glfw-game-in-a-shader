@@ -88,6 +88,8 @@ public:
         GLint uniformScreenSizeLocation = glGetUniformLocation(shaderProgram, "iResolution");
         double xpos, ypos;
 
+        bool isFirstRun = true;
+
         while (!glfwWindowShouldClose(window))
         {
 
@@ -110,7 +112,7 @@ public:
 
             glUniform1f(timeUniformLocation, glfwGetTime());
 
-            if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1))
+            if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) || isFirstRun)
                 glfwGetCursorPos(window, &xpos, &ypos);
 
             glUniform1i(frameUniformLocation, frame);
@@ -124,6 +126,7 @@ public:
             // -------------------------------------------------------------------------------
             glfwSwapBuffers(window);
             glfwPollEvents();
+            isFirstRun = false;
         }
     }
 
