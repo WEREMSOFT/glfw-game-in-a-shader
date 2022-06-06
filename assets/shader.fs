@@ -1,12 +1,13 @@
 
-#define MAX_STEPS 50
-#define MAX_DIST 50.
+#define MAX_STEPS 100
+#define MAX_DIST 100.
 #define SURF_DIST .01
 
 struct Camera
 {
     vec3 position;
     vec3 direction;
+    vec3 lookAt;
 };
 
 struct Torus
@@ -75,17 +76,17 @@ float getDistance(vec3 point)
     box.size = vec3(.5);
     box.position = vec3(-5., .5, 6.);
 
-    sphere.position.x = sin(iTime + 3.1416) * 3.;
-    sphere.position.z = cos(iTime + 3.1416) * 3. + 6.;
+    // sphere.position.x = sin(iTime + 3.1416) * 3.;
+    // sphere.position.z = cos(iTime + 3.1416) * 3. + 6.;
     float distanceToSphere = getSphereDistance(sphere, point);
 
-    sphere.position.x = sin(iTime) * 3.;
-    sphere.position.z = cos(iTime) * 3. + 6.;
+    // sphere.position.x = sin(iTime) * 3.;
+    // sphere.position.z = cos(iTime) * 3. + 6.;
     float distanceToSphere2 = getSphereDistance(sphere, point);
 
-    torus.radiouses.x = abs(sin(iTime * .2)) + 0.5;
-    torus.radiouses.y = abs(sin(iTime * 0.5)) + 0.1;
-    torus.position.y = abs(sin(iTime * 0.7)) + 0.5;
+    // torus.radiouses.x = abs(sin(iTime * .2)) + 0.5;
+    // torus.radiouses.y = abs(sin(iTime * 0.5)) + 0.1;
+    // torus.position.y = abs(sin(iTime * 0.7)) + 0.5;
     float distanceToTorus = getTorusDistance(torus, point);
     float distanceToPlane = point.y - .5;
 
@@ -125,14 +126,12 @@ float rayMarch(vec3 rayOrigin, vec3 rayDirection)
 float getLight(vec3 point)
 {
 #define LIGHT_PATH_RADIOUS 2.
-    vec3 lightPosition = vec3(0, 5, 6);
-    lightPosition.x = cos(iTime * 2.) * LIGHT_PATH_RADIOUS;
-    lightPosition.z = 6 + sin(iTime * 2.) * LIGHT_PATH_RADIOUS;
+    vec3 lightPosition = vec3(3, 5, 6);
     vec3 lightPosNormalized = normalize(lightPosition - point);
     vec3 n = getNormal(point);
     float diffuse = clamp(dot(n, lightPosNormalized), 0., 1.);
 
-    float d = rayMarch(point + n * SURF_DIST * 2., lightPosNormalized);
+    float d = rayMarch(point + n * SURF_DIST * 5., lightPosNormalized);
 
     if (d < length(lightPosition - point))
         diffuse *= .1;
@@ -147,12 +146,27 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec3 light = vec3(0, 0, 5);
 
     Camera camera;
-    camera.position = vec3(0, 3., -5.);
+    camera.position = vec3(0, 5, -6);
+    // camera.position = vec3(cos(iTime) * 5., 5., sin(iTime) * 5. + 6);
     camera.direction = normalize(vec3(uv.x, uv.y - .3, 1.));
+    camera.lookAt = vec3(0, 1., 6.);
 
-    float distance = rayMarch(camera.position, camera.direction);
+    // START --- This is the camera code for a rotating camera
+    float distanceToScreen = 1.;
+    vec3 forward = normalize(camera.lookAt - camera.position);
+    vec3 right = cross(vec3(0., 1., 0.), forward);
+    vec3 up = cross(forward, right);
+    vec3 center = camera.position + forward * distanceToScreen;
 
-    vec3 collisionPoint = camera.position + camera.direction * distance;
+    vec3 intersectionPoint = center + uv.x * right + uv.y * up;
+
+    vec3 rayDirection = intersectionPoint - camera.position;
+
+    // END --- rotating camera
+
+    float distance = rayMarch(camera.position, rayDirection);
+
+    vec3 collisionPoint = camera.position + forward * distance;
 
     vec4 col = vec4(vec3(getLight(collisionPoint)), 1.);
 
