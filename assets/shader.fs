@@ -76,19 +76,19 @@ float getDistance(vec3 point)
     box.size = vec3(.5);
     box.position = vec3(-5., .5, 6.);
 
-    // sphere.position.x = sin(iTime + 3.1416) * 3.;
-    // sphere.position.z = cos(iTime + 3.1416) * 3. + 6.;
+    sphere.position.x = sin(iTime + 3.1416) * 3.;
+    sphere.position.z = cos(iTime + 3.1416) * 3. + 6.;
     float distanceToSphere = getSphereDistance(sphere, point);
 
-    // sphere.position.x = sin(iTime) * 3.;
-    // sphere.position.z = cos(iTime) * 3. + 6.;
+    sphere.position.x = sin(iTime) * 3.;
+    sphere.position.z = cos(iTime) * 3. + 6.;
     float distanceToSphere2 = getSphereDistance(sphere, point);
 
-    // torus.radiouses.x = abs(sin(iTime * .2)) + 0.5;
-    // torus.radiouses.y = abs(sin(iTime * 0.5)) + 0.1;
-    // torus.position.y = abs(sin(iTime * 0.7)) + 0.5;
+    torus.radiouses.x = abs(sin(iTime * .2)) + 0.5;
+    torus.radiouses.y = abs(sin(iTime * 0.5)) + 0.1;
+    torus.position.y = abs(sin(iTime * 0.7)) + 0.5;
     float distanceToTorus = getTorusDistance(torus, point);
-    float distanceToPlane = point.y - .5;
+    float distanceToPlane = point.y;
 
     float distanceToBox = getBoxDistance(box, point);
 
@@ -146,17 +146,17 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec3 light = vec3(0, 0, 5);
 
     Camera camera;
-    camera.position = vec3(0, 5, -6);
-    // camera.position = vec3(cos(iTime) * 5., 5., sin(iTime) * 5. + 6);
-    camera.direction = normalize(vec3(uv.x, uv.y - .3, 1.));
-    camera.lookAt = vec3(0, 1., 6.);
+    camera.position = vec3(0, 4 + sin(iTime), -6.); // vec3(0, 4., -6);
+    camera.direction = normalize(vec3(uv.x, uv.y, 1.));
 
     // START --- This is the camera code for a rotating camera
     float distanceToScreen = 1.;
-    vec3 forward = normalize(camera.lookAt - camera.position);
+    vec3 lookAt = vec3(0, 4., 1.);
+    vec3 position = vec3(0, 4 + sin(iTime), -6.);
+    vec3 forward = normalize(lookAt - position);
     vec3 right = cross(vec3(0., 1., 0.), forward);
     vec3 up = cross(forward, right);
-    vec3 center = camera.position + forward * distanceToScreen;
+    vec3 center = position + forward * distanceToScreen;
 
     vec3 intersectionPoint = center + uv.x * right + uv.y * up;
 
@@ -164,9 +164,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 
     // END --- rotating camera
 
-    float distance = rayMarch(camera.position, rayDirection);
+    float distance = 0;
 
-    vec3 collisionPoint = camera.position + forward * distance;
+    if (sin(uv.x) > 0)
+        distance = rayMarch(camera.position, rayDirection);
+    else
+        distance = rayMarch(camera.position, camera.direction);
+
+    vec3 collisionPoint = camera.position + camera.direction * distance;
 
     vec4 col = vec4(vec3(getLight(collisionPoint)), 1.);
 
