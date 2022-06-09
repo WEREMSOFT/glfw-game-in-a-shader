@@ -1,8 +1,9 @@
 
 #define MAX_STEPS 100
-#define MAX_DIST 100.
+#define MAX_DIST 50.
 #define SURF_DIST .01
-
+#define TAU 6.283185
+#define PI 3.141592
 struct Camera
 {
     vec3 position;
@@ -88,11 +89,11 @@ float getDistance(vec3 point)
     torus.radiouses.y = abs(sin(iTime * 0.5)) + 0.1;
     torus.position.y = abs(sin(iTime * 0.7)) + 0.5;
     float distanceToTorus = getTorusDistance(torus, point);
-    float distanceToPlane = point.y;
+    float distanceToPlane = point.y + 5. + sin(point.x * .5 + iTime) + cos(point.z * .5 + iTime);
 
     float distanceToBox = getBoxDistance(box, point);
 
-    return smoothMin(smoothMin(smoothMin(smoothMin(distanceToSphere, distanceToSphere2, .5), distanceToTorus, .5), distanceToBox, .5), distanceToPlane, .9);
+    return min(smoothMin(smoothMin(smoothMin(distanceToSphere, distanceToSphere2, .5), distanceToTorus, .5), distanceToBox, .5), distanceToPlane);
 }
 
 vec3 getNormal(vec3 point)
@@ -139,41 +140,48 @@ float getLight(vec3 point)
     return diffuse;
 }
 
+vec3 GetRayDir(vec2 uv, vec3 p, vec3 l, float z)
+{
+    vec3 f = normalize(l - p),
+         r = normalize(cross(vec3(0, 1, 0), f)),
+         u = cross(f, r),
+         c = f * z,
+         i = c + uv.x * r + uv.y * u,
+         d = normalize(i);
+    return d;
+}
+
+Camera getCamera(vec2 mousePosition, vec2 screenPosition)
+{
+    Camera camera;
+    camera.position = vec3(0, 20., -20);
+    camera.lookAt = vec3(0, 0, 6);
+
+    camera.position.yz *= getRotationMatrix(-mousePosition.y * PI + 1.);
+    camera.position.xz *= getRotationMatrix(-mousePosition.x * TAU);
+    camera.direction = GetRayDir(screenPosition, camera.position, camera.lookAt, 1.);
+    return camera;
+}
+
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     vec2 uv = (fragCoord - .5 * iResolution.xy) / iResolution.y;
+    vec2 m = iMouse.xy / iResolution.xy;
 
     vec3 light = vec3(0, 0, 5);
 
-    Camera camera;
-    camera.position = vec3(0, 4 + sin(iTime), -6.); // vec3(0, 4., -6);
-    camera.direction = normalize(vec3(uv.x, uv.y, 1.));
+    Camera camera = getCamera(m, uv);
 
-    // START --- This is the camera code for a rotating camera
-    float distanceToScreen = 1.;
-    vec3 lookAt = vec3(0, 4., 1.);
-    vec3 position = vec3(0, 4 + sin(iTime), -6.);
-    vec3 forward = normalize(lookAt - position);
-    vec3 right = cross(vec3(0., 1., 0.), forward);
-    vec3 up = cross(forward, right);
-    vec3 center = position + forward * distanceToScreen;
+    float distance = rayMarch(camera.position, camera.direction);
 
-    vec3 intersectionPoint = center + uv.x * right + uv.y * up;
+    vec4 col = vec4(0);
 
-    vec3 rayDirection = intersectionPoint - camera.position;
+    if (distance < MAX_DIST)
+    {
+        vec3 collisionPoint = camera.position + camera.direction * distance;
 
-    // END --- rotating camera
-
-    float distance = 0;
-
-    if (sin(uv.x) > 0)
-        distance = rayMarch(camera.position, rayDirection);
-    else
-        distance = rayMarch(camera.position, camera.direction);
-
-    vec3 collisionPoint = camera.position + camera.direction * distance;
-
-    vec4 col = vec4(vec3(getLight(collisionPoint)), 1.);
+        col = vec4(vec3(getLight(collisionPoint)), 1.);
+    }
 
     fragColor = col;
 }
