@@ -1,7 +1,7 @@
 
 #define MAX_STEPS 100
-#define MAX_DIST 100.
-#define SURF_DIST .01
+#define MAX_DIST 70.
+#define SURF_DIST .1
 #define TAU 6.283185
 #define PI 3.141592
 
@@ -108,22 +108,23 @@ CollisionInfo getDistance(vec3 point)
 
     sphere.parent.position.x = sin(iTime + PI) * 3.;
     sphere.parent.position.z = cos(iTime + PI) * 3. + 6.;
-    sphere.parent.color = vec4(1., 1., 0, 1.);
+    sphere.parent.color = vec4(1., .5, .5, 1.);
     CollisionInfo distanceToSphere = getSphereDistance(sphere, point);
 
     sphere.parent.position.x = sin(iTime) * 3.;
     sphere.parent.position.z = cos(iTime) * 3. + 6.;
+    sphere.parent.color = vec4(0, 1, 0, 1.);
     CollisionInfo distanceToSphere2 = getSphereDistance(sphere, point);
 
     torus.radiouses.x = abs(sin(iTime * .2)) + 0.5;
     torus.radiouses.y = abs(sin(iTime * 0.5)) + 0.1;
     torus.parent.position.y = abs(sin(iTime * 0.7)) + 0.5;
     CollisionInfo distanceToTorus = getTorusDistance(torus, point);
-    float distanceToPlane = point.y + 5. + sin(point.x * .5 + iTime) + cos(point.z * .5 + iTime);
+    float distanceToPlane = (point.y + 5. + sin(point.x * .5 + iTime) + cos(point.z * .5 + iTime)) * .5;
 
     CollisionInfo distanceToBox = getBoxDistance(box, point);
 
-    returnValue = distanceToSphere;
+    returnValue = distanceToSphere2;
 
     if (distanceToSphere.distance < distanceToSphere2.distance)
     {
@@ -146,7 +147,6 @@ CollisionInfo getDistance(vec3 point)
         returnValue.color = vec4(1.);
     }
 
-    // returnValue.distance = min(smoothMin(smoothMin(smoothMin(distanceToSphere.distance, distanceToSphere2.distance, .5), distanceToTorus.distance, .5), distanceToBox.distance, .5), distanceToPlane);
     return returnValue;
 }
 
