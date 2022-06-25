@@ -1,7 +1,12 @@
+#include "../libs/imgui/imgui.h"
+#include "../libs/imgui/imgui_impl_glfw.h"
+#include "../libs/imgui/imgui_impl_opengl3.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <vector>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -18,6 +23,10 @@ class Program
     inline static int screenWidth = SCREEN_WIDTH;
     inline static int screenHeight = SCREEN_HEIGHT;
     unsigned int texture[4];
+
+    bool show_demo_window = true;
+
+    ImGuiIO io;
 
     static void frameBufferSizeCallback(GLFWwindow *window, int width, int height)
     {
@@ -45,6 +54,7 @@ public:
         }
 
         loadAssets();
+        imGuiInit();
     }
 
     void runMailLoop(void)
@@ -128,6 +138,10 @@ public:
             glBindVertexArray(VAO);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
+            imGuiStartFrame();
+            imGuiDrawUI();
+            imGuiRender();
+
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
             // -------------------------------------------------------------------------------
             glfwSwapBuffers(window);
@@ -161,6 +175,47 @@ public:
         loadTexture("assets/channel1.png", "iChannel1", 1, &texture[1]);
         loadTexture("assets/channel3.png", "iChannel2", 2, &texture[2]);
         loadTexture("assets/channel2.png", "iChannel3", 3, &texture[3]);
+
+        std::vector<std::string> faces = {
+            "assets/cubemap/right.jpg",
+            "assets/cubemap/left.jpg",
+            "assets/cubemap/top.jpg",
+            "assets/cubemap/bottom.jpg",
+            "assets/cubemap/front.jpg",
+            "assets/cubemap/back.jpg"};
+
+        texture[4] = loadCubemap(faces);
+    }
+
+    unsigned int loadCubemap(std::vector<std::string> faces)
+    {
+        unsigned int textureID;
+        glGenTextures(1, &textureID);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+        int width, height, nrChannels;
+        for (unsigned int i = 0; i < faces.size(); i++)
+        {
+            unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+            if (data)
+            {
+                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                             0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+                stbi_image_free(data);
+            }
+            else
+            {
+                std::cout << "Cubemap tex failed to load at path: " << faces[i] << std::endl;
+                stbi_image_free(data);
+            }
+        }
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+        return textureID;
     }
 
     void
@@ -187,5 +242,71 @@ public:
         }
         stbi_image_free(data);
         glUniform1i(glGetUniformLocation(shaderProgram, channel), textureLocation);
+    }
+
+    void imGuiInit()
+    {
+        // Setup Dear ImGui context
+        // GL 3.0 + GLSL 130
+        const char *glsl_version = "#version 130";
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+        // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // Enable Docking
+        io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
+        ImGui::StyleColorsDark();
+
+        ImGuiStyle &style = ImGui::GetStyle();
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            style.WindowRounding = 0.0f;
+            style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+        }
+
+        // Setup Platform/Renderer backends
+        ImGui_ImplGlfw_InitForOpenGL(window, true);
+        ImGui_ImplOpenGL3_Init(glsl_version);
+
+        ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    }
+
+    void imGuiStartFrame()
+    {
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+    }
+
+    void imGuiDrawUI()
+    {
+        if (show_demo_window)
+            ImGui::ShowDemoWindow(&show_demo_window);
+    }
+
+    void imGuiRender()
+    {
+        // Rendering
+        ImGui::Render();
+        int display_w, display_h;
+        glfwGetFramebufferSize(window, &display_w, &display_h);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        // Update and Render additional Platform Windows
+        // (Platform functions may change the current OpenGL context, so we save/restore it to make it easier to paste this code elsewhere.
+        //  For this specific demo app we could also call glfwMakeContextCurrent(window) directly)
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            GLFWwindow *backup_current_context = glfwGetCurrentContext();
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+            glfwMakeContextCurrent(backup_current_context);
+        }
     }
 };
