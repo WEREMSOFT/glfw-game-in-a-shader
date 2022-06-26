@@ -4,6 +4,8 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 
+void (*glActiveTexture)(GLenum texture);
+
 #ifndef GLchar
 typedef char GLchar;
 typedef size_t GLsizeiptr;

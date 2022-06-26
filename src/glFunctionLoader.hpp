@@ -138,5 +138,7 @@ void loadOpenGLFunctions(void)
     bindFunction(glDeleteVertexArrays, void (*)(GLsizei n, const GLuint *arrays));
     bindFunction(glDeleteBuffers, void (*)(GLsizei n, const GLuint *buffers));
     bindFunction(glDeleteProgram, void (*)(GLuint program));
-    bindFunctionRef(glActiveTexture, void (*)(GLenum texture));
+#if defined(_WIN32) || defined(_WIN64)
+    bindFunction(glActiveTexture, void (*)(GLenum texture));
+#endif
 }
