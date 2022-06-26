@@ -162,7 +162,7 @@ vec3 getNormal(vec3 point)
     return normalize(n);
 }
 
-CollisionInfo rayMarch(vec3 rayOrigin, vec3 rayDirection)
+CollisionInfo rayMarch(vec3 rayOrigin, vec3 rayDirection, float maxDist)
 {
     CollisionInfo distanceToOrigin;
 
@@ -173,7 +173,7 @@ CollisionInfo rayMarch(vec3 rayOrigin, vec3 rayDirection)
 
         distanceToOrigin.distance += distanceToScene.distance;
         distanceToOrigin.color = distanceToScene.color;
-        if (distanceToOrigin.distance > MAX_DIST || distanceToScene.distance < SURF_DIST)
+        if (distanceToOrigin.distance > maxDist || distanceToScene.distance < SURF_DIST)
             break;
     }
 
@@ -188,7 +188,7 @@ float getLight(vec3 point)
     vec3 n = getNormal(point);
     float diffuse = clamp(dot(n, lightPosNormalized), 0., 1.);
 
-    CollisionInfo d = rayMarch(point + n * SURF_DIST * 5., lightPosNormalized);
+    CollisionInfo d = rayMarch(point + n * SURF_DIST * 5., lightPosNormalized, length(lightPosition - point));
 
     if (d.distance < length(lightPosition - point))
         diffuse *= .1;
@@ -228,7 +228,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 
     Camera camera = getCamera(m, uv);
 
-    CollisionInfo colInfo = rayMarch(camera.position, camera.direction);
+    CollisionInfo colInfo = rayMarch(camera.position, camera.direction, MAX_DIST);
 
     vec4 col = vec4(0);
 

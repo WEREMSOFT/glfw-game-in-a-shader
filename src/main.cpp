@@ -3,7 +3,7 @@
 int main(void)
 {
 	Program program;
-	program.runMailLoop();
+	program.runMainLoop();
 
 	return 0;
 }

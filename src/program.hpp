@@ -11,9 +11,15 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "glFunctionLoader.hpp"
+#include "utils.hpp"
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 360
+
+struct vec2
+{
+    double x, y;
+};
 
 class Program
 {
@@ -57,8 +63,10 @@ public:
         imGuiInit();
     }
 
-    void runMailLoop(void)
+    void runMainLoop(void)
     {
+        vec2 mousePos, mouseDelta, mouseOldPos, mousePosAdj;
+
         float vertices[] = {
             1.0f, 1.0f, 0.0f, 1.0f, 1.0f,   // top right
             1.0f, -1.0f, 0.0f, 1.0f, 0.0f,  // bottom right
@@ -96,7 +104,6 @@ public:
         GLint mouseUniformLocation = glGetUniformLocation(shaderProgram, "iMouse");
         GLint timeUniformLocation = glGetUniformLocation(shaderProgram, "iTime");
         GLint uniformScreenSizeLocation = glGetUniformLocation(shaderProgram, "iResolution");
-        double xPos, yPos;
 
         bool isFirstRun = true;
 
@@ -124,18 +131,25 @@ public:
 
             glUniform1f(timeUniformLocation, glfwGetTime());
 
-            if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) || isFirstRun)
+            mouseOldPos = mousePos;
+            glfwGetCursorPos(window, &mousePos.x, &mousePos.y);
+            int width, height;
+            glfwGetWindowSize(window, &width, &height);
+            mousePos.y = height - mousePos.y;
+            mouseDelta.x = mousePos.x - mouseOldPos.x;
+            mouseDelta.y = mousePos.y - mouseOldPos.y;
+
+            if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_3) || isFirstRun)
             {
                 isFirstRun = false;
-                glfwGetCursorPos(window, &xPos, &yPos);
-                int width, height;
-                glfwGetWindowSize(window, &width, &height);
-                yPos = height - yPos;
+
+                mousePosAdj.x += mouseDelta.x;
+                mousePosAdj.y += mouseDelta.y;
             }
 
             glUniform1i(frameUniformLocation, frame);
 
-            glUniform4f(mouseUniformLocation, xPos, yPos, 0, 0);
+            glUniform4f(mouseUniformLocation, mousePosAdj.x, mousePosAdj.y, 0, 0);
 
             glBindVertexArray(VAO);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
