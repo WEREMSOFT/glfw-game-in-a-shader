@@ -5,7 +5,7 @@ FLAGS = -g -O4 -std=c++17
 LIBS = -lglfw -lGL
 TARGET = bin/main.bin
 
-all: clean copy_assets $(OBJ)
+all: copy_assets $(OBJ)
 	$(CC) $(FLAGS) $(OBJ) -o $(TARGET) $(LIBS)
 
 clean:

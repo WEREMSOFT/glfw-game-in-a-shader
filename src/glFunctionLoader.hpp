@@ -73,9 +73,6 @@ void (*glUniform3f)(GLuint id, GLfloat x, GLfloat y, GLfloat z);
 void (*glUniform4f)(GLuint id, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
 void (*glUniform2i)(GLuint id, GLuint x, GLuint y);
 void (*glUniform1i)(GLuint id, GLint x);
-void (*glActiveTexture)(GLenum texture);
-
-// void (*glViewport)(GLint x, GLint y, GLsizei width, GLsizei height);
 
 #define bindFunctionRef(a, b)                \
     {                                        \
@@ -141,5 +138,5 @@ void loadOpenGLFunctions(void)
     bindFunction(glDeleteVertexArrays, void (*)(GLsizei n, const GLuint *arrays));
     bindFunction(glDeleteBuffers, void (*)(GLsizei n, const GLuint *buffers));
     bindFunction(glDeleteProgram, void (*)(GLuint program));
-    bindFunction(glActiveTexture, void (*)(GLenum texture));
+    bindFunctionRef(glActiveTexture, void (*)(GLenum texture));
 }
