@@ -118,6 +118,8 @@ public:
             glBindTexture(GL_TEXTURE_2D, texture[2]);
             glActiveTexture(GL_TEXTURE3);
             glBindTexture(GL_TEXTURE_2D, texture[3]);
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, texture[4]);
             glUniform3f(uniformScreenSizeLocation, Program::screenWidth, Program::screenHeight, 1.0);
 
             glUniform1f(timeUniformLocation, glfwGetTime());

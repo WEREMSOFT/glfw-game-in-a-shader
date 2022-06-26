@@ -232,14 +232,26 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 
     vec4 col = vec4(0);
 
+    vec3 rd = normalize(vec3(uv, 1.));
+    rd.xz *= -getRotationMatrix(iTime);
+
+    vec3 p = camera.position + camera.direction * colInfo.distance;
+    vec3 r = reflect(rd, getNormal(p));
+    vec4 refl = texture(iChannel4, r);
+
+    vec4 cubeMapColor = texture(iChannel4, p);
+
     if (colInfo.distance < MAX_DIST)
     {
         vec3 collisionPoint = camera.position + camera.direction * colInfo.distance;
 
         col = vec4(vec3(getLight(collisionPoint)), 1.);
 
+        if (colInfo.color == vec4(1.))
+            colInfo.color = cubeMapColor;
+
         col = colInfo.color * col;
     }
 
-    fragColor = col;
+    fragColor = col + cubeMapColor * .5;
 }
