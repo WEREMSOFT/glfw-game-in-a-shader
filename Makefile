@@ -2,7 +2,7 @@ SRC = $(shell find src -name *.cpp) $(shell find libs/imgui -name *.cpp)
 OBJ = $(patsubst %.cpp,%.obj,$(SRC))
 CC = g++
 FLAGS = -g -O4 -std=c++17
-LIBS = -lglfw -lGL
+LIBS = -lglfw -lGL -ldl
 TARGET = bin/main.bin
 
 all: copy_assets $(OBJ)
