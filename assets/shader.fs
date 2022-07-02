@@ -16,6 +16,7 @@ struct CollisionInfo
 {
     float distance;
     vec4 color;
+    vec3 normal;
 };
 
 struct Shape
@@ -120,7 +121,7 @@ CollisionInfo getDistance(vec3 point)
     torus.radiouses.y = abs(sin(iTime * 0.5)) + 0.1;
     torus.parent.position.y = abs(sin(iTime * 0.7)) + 0.5;
     CollisionInfo distanceToTorus = getTorusDistance(torus, point);
-    float distanceToPlane = (point.y + 5. + sin(point.x * .5 + iTime) + cos(point.z * .5 + iTime)) * .5;
+    float distanceToPlane = point.y;
 
     CollisionInfo distanceToBox = getBoxDistance(box, point);
 
@@ -180,20 +181,38 @@ CollisionInfo rayMarch(vec3 rayOrigin, vec3 rayDirection, float maxDist)
     return distanceToOrigin;
 }
 
+float softshadow( in vec3 ro, in vec3 rd, float mint, float maxt, float k )
+{
+    float res = 1.0;
+    float ph = 1e20;
+    for( float t=mint; t<maxt; )
+    {
+        CollisionInfo ci = getDistance(ro + rd*t);
+        float h = ci.distance;
+        if( h<0.001 )
+            return 0.0;
+        float y = h*h/(2.0*ph);
+        float d = sqrt(h*h-y*y);
+        res = min( res, k*d/max(0.0,t-y) );
+        ph = h;
+        t += h;
+    }
+    return res;
+}
+
 float getLight(vec3 point)
 {
 #define LIGHT_PATH_RADIOUS 2.
-    vec3 lightPosition = vec3(3, 5, 6);
+    vec3 lightPosition = vec3(3, 12., 6);
     vec3 lightPosNormalized = normalize(lightPosition - point);
     vec3 n = getNormal(point);
     float diffuse = clamp(dot(n, lightPosNormalized), 0., 1.);
 
     CollisionInfo d = rayMarch(point + n * SURF_DIST * 5., lightPosNormalized, length(lightPosition - point));
 
-    if (d.distance < length(lightPosition - point))
-        diffuse *= .1;
+    float penumbra = softshadow(point, lightPosNormalized, .1, 10., 2.);
 
-    return diffuse;
+    return diffuse * penumbra;
 }
 
 vec3 GetRayDir(vec2 uv, vec3 p, vec3 l, float z)
@@ -210,8 +229,8 @@ vec3 GetRayDir(vec2 uv, vec3 p, vec3 l, float z)
 Camera getCamera(vec2 mousePosition, vec2 screenPosition)
 {
     Camera camera;
-    camera.position = vec3(0, 20., -20);
-    camera.lookAt = vec3(0, 0, 6);
+    camera.position = vec3(0, 5., -20);
+    camera.lookAt = vec3(0, 5., 6);
 
     camera.position.yz *= getRotationMatrix(-mousePosition.y * PI + 1.);
     camera.position.xz *= getRotationMatrix(-mousePosition.x * TAU);
@@ -224,7 +243,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec2 uv = (fragCoord - .5 * iResolution.xy) / iResolution.y;
     vec2 m = iMouse.xy / iResolution.xy;
 
-    vec3 light = vec3(0, 0, 5);
+    vec3 light = vec3(0, 5., 5);
 
     Camera camera = getCamera(m, uv);
 
@@ -236,22 +255,26 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     rd.xz *= -getRotationMatrix(iTime);
 
     vec3 p = camera.position + camera.direction * colInfo.distance;
-    vec3 r = reflect(rd, getNormal(p));
+    vec3 r = reflect(camera.direction, getNormal(p));
     vec4 refl = texture(iChannel4, r);
 
-    vec4 cubeMapColor = texture(iChannel4, p);
+    
+
+    vec3 collisionPoint = camera.position + camera.direction * colInfo.distance;
 
     if (colInfo.distance < MAX_DIST)
     {
-        vec3 collisionPoint = camera.position + camera.direction * colInfo.distance;
+        vec4 cubeMapColor = texture(iChannel4, r);
 
         col = vec4(vec3(getLight(collisionPoint)), 1.);
-
-        if (colInfo.color == vec4(1.))
-            colInfo.color = cubeMapColor;
-
-        col = colInfo.color * col;
+        
+        col = mix(mix(colInfo.color, col, 0.5), cubeMapColor, .5);
+    } else {
+        vec4 cubeMapColor = texture(iChannel4, camera.direction);
+    
+        col = cubeMapColor;
+    
     }
 
-    fragColor = col + cubeMapColor * .5;
+    fragColor = col;
 }
