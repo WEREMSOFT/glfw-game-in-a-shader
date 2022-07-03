@@ -1,9 +1,15 @@
-
 #define MAX_STEPS 100
-#define MAX_DIST 70.
-#define SURF_DIST .1
+#define MAX_DIST 100.
+#define MIN_DIST .01
+
 #define TAU 6.283185
 #define PI 3.141592
+
+#define MAT_DEFAULT 0
+#define MAT_CHECKERS 1
+#define MAT_MIRROR 2
+#define MAT_GOLD 3
+
 
 struct Camera
 {
@@ -12,183 +18,65 @@ struct Camera
     vec3 lookAt;
 };
 
-struct CollisionInfo
+float getDist2Box(vec3 p, vec3 size)
 {
-    float distance;
-    vec4 color;
-    vec3 normal;
-};
-
-struct Shape
-{
-    vec3 position;
-    vec4 color;
-    vec3 rotation;
-};
-
-struct Torus
-{
-    Shape parent;
-    vec2 radiouses;
-};
-
-struct Box
-{
-    Shape parent;
-    vec3 size;
-};
-
-struct Sphere
-{
-    Shape parent;
-    float radius;
-};
-
-mat2 getRotationMatrix(float angle)
-{
-    float s = sin(angle);
-    float c = cos(angle);
-    return mat2(c, -s, s, c);
+    return length(max(abs(p)-size, 0.));
 }
 
-float smoothMin(float a, float b, float ammount)
+float getDist2Sphere(vec3 p, float radius)
 {
-    float h = clamp(.5 + .5 * (b - a) / ammount, 0., 1.);
-    return mix(b, a, h) - ammount * h * (1. - h);
+    return length(p) - radius;
 }
 
-CollisionInfo getSphereDistance(Sphere sphere, vec3 point)
+float getDistance(vec3 p)
 {
-    CollisionInfo returnValue;
-    returnValue.color = sphere.parent.color;
-    returnValue.distance = length(point - sphere.parent.position) - sphere.radius;
-    return returnValue;
+    float floorD = p.y + 4.;
+    // distance to sphere
+    vec3 sphere2 = vec3(1., 1., 2.5);
+    float ds2 = getDist2Sphere(p - sphere2, 1.);
+
+    // distance to sphere
+    vec3 sphere = vec3(1., 1., 0.);
+    float ds = getDist2Sphere(p - sphere, 1.);
+
+    float boxDistance = getDist2Box(p-vec3(-1.5,.75, .5), vec3(.75));
+
+    return min(min(min(ds, floorD), boxDistance), ds2);
 }
 
-CollisionInfo getTorusDistance(Torus torus, vec3 point)
+int getMaterial(vec3 p)
 {
-    CollisionInfo returnValue;
-    returnValue.color = torus.parent.color;
-    vec3 position = point - torus.parent.position;
-    float x = length(position.xz) - torus.radiouses.x;
-    returnValue.distance = length(vec2(x, position.y)) - torus.radiouses.y;
-    return returnValue;
+    float floorD = p.y + 4.;
+
+  // distance to sphere2
+    vec3 sphere2 = vec3(1., 1., 2.5);
+    float ds2 = getDist2Sphere(p - sphere2, 1.);
+
+    // distance to sphere
+    vec3 sphere = vec3(1., 1., 0.);
+    float ds = getDist2Sphere(p - sphere, 1.);
+
+    float boxDistance = getDist2Box(p-vec3(-1.5,.75, .5), vec3(.75));
+
+    float d = min(min(min(ds, floorD), boxDistance), ds2);
+    
+    if(d == floorD)
+        return MAT_CHECKERS;
+        
+    if(d == ds || d == ds2)
+        return MAT_MIRROR;
+        
+    return MAT_DEFAULT;
 }
 
-CollisionInfo getBoxDistance(Box box, vec3 point)
-{
-    CollisionInfo returnValue;
-    returnValue.color = box.parent.color;
-    mat2 rotationMatrix = getRotationMatrix(iTime);
-    vec3 position = point - box.parent.position;
-    position.xz *= rotationMatrix;
-
-    returnValue.distance = length(max(abs(position) - box.size, 0.));
-    return returnValue;
-}
-
-CollisionInfo getDistance(vec3 point)
-{
-    CollisionInfo returnValue;
-    returnValue.color = vec4(1.);
-
-    Sphere sphere;
-    sphere.parent.position = vec3(0, 1., 6.);
-    sphere.radius = 1.;
-    sphere.parent.color = vec4(1., 1., 0, 1.);
-
-    Torus torus;
-    torus.radiouses = vec2(2., .3);
-    torus.parent.position = vec3(-1., .5, 6.);
-    torus.parent.color = vec4(1., 0, 0, 1.);
-
-    Box box;
-    box.size = vec3(.5);
-    box.parent.position = vec3(-5., .5, 6.);
-    box.parent.color = vec4(1., 0, 1., 1.);
-
-    sphere.parent.position.x = sin(iTime + PI) * 3.;
-    sphere.parent.position.z = cos(iTime + PI) * 3. + 6.;
-    sphere.parent.color = vec4(1., .5, .5, 1.);
-    CollisionInfo distanceToSphere = getSphereDistance(sphere, point);
-
-    sphere.parent.position.x = sin(iTime) * 3.;
-    sphere.parent.position.z = cos(iTime) * 3. + 6.;
-    sphere.parent.color = vec4(0, 1, 0, 1.);
-    CollisionInfo distanceToSphere2 = getSphereDistance(sphere, point);
-
-    torus.radiouses.x = abs(sin(iTime * .2)) + 0.5;
-    torus.radiouses.y = abs(sin(iTime * 0.5)) + 0.1;
-    torus.parent.position.y = abs(sin(iTime * 0.7)) + 0.5;
-    CollisionInfo distanceToTorus = getTorusDistance(torus, point);
-    float distanceToPlane = point.y;
-
-    CollisionInfo distanceToBox = getBoxDistance(box, point);
-
-    returnValue = distanceToSphere2;
-
-    if (distanceToSphere.distance < distanceToSphere2.distance)
-    {
-        returnValue = distanceToSphere;
-    }
-
-    if (distanceToTorus.distance < returnValue.distance)
-    {
-        returnValue = distanceToTorus;
-    }
-
-    if (distanceToBox.distance < returnValue.distance)
-    {
-        returnValue = distanceToBox;
-    }
-
-    if (distanceToPlane < returnValue.distance)
-    {
-        returnValue.distance = distanceToPlane;
-        returnValue.color = vec4(1.);
-    }
-
-    return returnValue;
-}
-
-vec3 getNormal(vec3 point)
-{
-    vec2 e = vec2(.01, 0);
-    CollisionInfo distanceToPoint = getDistance(point);
-    vec3 n = vec3(
-        distanceToPoint.distance - getDistance(point - e.xyy).distance,
-        distanceToPoint.distance - getDistance(point - e.yxy).distance,
-        distanceToPoint.distance - getDistance(point - e.yyx).distance);
-
-    return normalize(n);
-}
-
-CollisionInfo rayMarch(vec3 rayOrigin, vec3 rayDirection, float maxDist)
-{
-    CollisionInfo distanceToOrigin;
-
-    for (int i = 0; i < MAX_STEPS; i++)
-    {
-        vec3 point = rayOrigin + rayDirection * distanceToOrigin.distance;
-        CollisionInfo distanceToScene = getDistance(point);
-
-        distanceToOrigin.distance += distanceToScene.distance;
-        distanceToOrigin.color = distanceToScene.color;
-        if (distanceToOrigin.distance > maxDist || distanceToScene.distance < SURF_DIST)
-            break;
-    }
-
-    return distanceToOrigin;
-}
-
+// Stable softshadow function from https://iquilezles.org/articles/rmshadows/
 float softshadow( in vec3 ro, in vec3 rd, float mint, float maxt, float k )
 {
     float res = 1.0;
     float ph = 1e20;
     for( float t=mint; t<maxt; )
     {
-        CollisionInfo ci = getDistance(ro + rd*t);
-        float h = ci.distance;
+        float h = getDistance(ro + rd*t);
         if( h<0.001 )
             return 0.0;
         float y = h*h/(2.0*ph);
@@ -200,19 +88,68 @@ float softshadow( in vec3 ro, in vec3 rd, float mint, float maxt, float k )
     return res;
 }
 
-float getLight(vec3 point)
+vec3 getNormal(vec3 p)
 {
-#define LIGHT_PATH_RADIOUS 2.
-    vec3 lightPosition = vec3(3, 12., 6);
-    vec3 lightPosNormalized = normalize(lightPosition - point);
-    vec3 n = getNormal(point);
-    float diffuse = clamp(dot(n, lightPosNormalized), 0., 1.);
+    vec2 e = vec2(0.01, 0.);
+    
+    float d = getDistance(p);
+    
+    vec3 n = d - vec3(
+        getDistance(p - e.xyy), 
+        getDistance(p - e.yxy),
+        getDistance(p - e.yyx));    
+    
+    return normalize(n);
+}
 
-    CollisionInfo d = rayMarch(point + n * SURF_DIST * 5., lightPosNormalized, length(lightPosition - point));
+float rayMarch(vec3 ro, vec3 rd)
+{
+    
+    float dO = 0.;
+    
+    for(int i = 0; i < MAX_STEPS; i++)
+    {
+        float dl = getDistance(ro + rd * dO);
+        dO += dl;
+        if(dl < MIN_DIST || dO > MAX_DIST) break;
+    }
 
-    float penumbra = softshadow(point, lightPosNormalized, .1, 10., 2.);
+    return dO;
+}
 
-    return diffuse * penumbra;
+float getLight(vec3 p)
+{
+    vec3 lightPosition = vec3(-1., 5., 6.);
+    
+    float lightMoveRadius = 7.;
+    
+    lightPosition.x = sin(iTime) * lightMoveRadius;
+    lightPosition.z = cos(iTime) * lightMoveRadius;
+    
+    vec3 lightDirection = normalize(lightPosition - p);
+    
+    vec3 n = getNormal(p);
+    
+    float angleNormLight = dot(lightDirection, n);
+    
+    float distanceToLight = rayMarch(p + n * .1, lightDirection);
+    
+    float shadow = softshadow(p, lightDirection, 0.01, 100., 8.);
+    
+    return angleNormLight * shadow;
+}
+
+float checkers( in vec3 p )
+{
+    vec3 s = sign(fract(p*.5)-.5);
+    return .5 - .5*s.x*s.z;
+}
+
+mat2 getRotationMatrix(float angle)
+{
+    float s = sin(angle);
+    float c = cos(angle);
+    return mat2(c, -s, s, c);
 }
 
 vec3 GetRayDir(vec2 uv, vec3 p, vec3 l, float z)
@@ -226,11 +163,14 @@ vec3 GetRayDir(vec2 uv, vec3 p, vec3 l, float z)
     return d;
 }
 
-Camera getCamera(vec2 mousePosition, vec2 screenPosition)
+
+Camera getCamera(vec2 screenPosition)
 {
+    vec2 mousePosition = iMouse.xy / iResolution.xy;
+
     Camera camera;
-    camera.position = vec3(0, 5., -20);
-    camera.lookAt = vec3(0, 5., 6);
+    camera.position = vec3(0, 1., -10.);
+    camera.lookAt = vec3(0, 0, 0);
 
     camera.position.yz *= getRotationMatrix(-mousePosition.y * PI + 1.);
     camera.position.xz *= getRotationMatrix(-mousePosition.x * TAU);
@@ -238,43 +178,71 @@ Camera getCamera(vec2 mousePosition, vec2 screenPosition)
     return camera;
 }
 
-void mainImage(out vec4 fragColor, in vec2 fragCoord)
+vec4 render(inout vec3 ro, inout vec3 rd, inout float reflectivity)
 {
-    vec2 uv = (fragCoord - .5 * iResolution.xy) / iResolution.y;
-    vec2 m = iMouse.xy / iResolution.xy;
-
-    vec3 light = vec3(0, 5., 5);
-
-    Camera camera = getCamera(m, uv);
-
-    CollisionInfo colInfo = rayMarch(camera.position, camera.direction, MAX_DIST);
-
-    vec4 col = vec4(0);
-
-    vec3 rd = normalize(vec3(uv, 1.));
-    rd.xz *= -getRotationMatrix(iTime);
-
-    vec3 p = camera.position + camera.direction * colInfo.distance;
-    vec3 r = reflect(camera.direction, getNormal(p));
-    vec4 refl = texture(iChannel4, r);
-
     
+    float d = rayMarch(ro, rd);
 
-    vec3 collisionPoint = camera.position + camera.direction * colInfo.distance;
+    vec4 color = texture(iChannel4, rd);
 
-    if (colInfo.distance < MAX_DIST)
+    vec3 p = ro + rd * d;
+    vec3 n = getNormal(p);
+
+    vec3 texCol = vec3(checkers(p));
+    vec3 col = vec3(getLight(p));
+
+    vec3 reflection = reflect(rd, n);
+    ro = p + n * MIN_DIST * 3.;
+    rd = reflection;
+
+    reflectivity = 0.;
+
+    if(d < MAX_DIST)
     {
-        vec4 cubeMapColor = texture(iChannel4, r);
+        int material = getMaterial(p);
 
-        col = vec4(vec3(getLight(collisionPoint)), 1.);
-        
-        col = mix(mix(colInfo.color, col, 0.5), cubeMapColor, .5);
-    } else {
-        vec4 cubeMapColor = texture(iChannel4, camera.direction);
-    
-        col = cubeMapColor;
-    
+        if(material == MAT_DEFAULT)
+        {
+            color = vec4(col, 1.0);
+            reflectivity = 0.;
+        } else if(material == MAT_CHECKERS)
+        {
+            color = vec4(mix(col, texCol, .5), 1.0);
+            reflectivity = .5;
+        } else if(material == MAT_MIRROR)
+        {
+           
+            color = vec4(0.);
+            reflectivity = .9;
+        }
+
+        return color;
     }
+    
+    return color;
+}
 
-    fragColor = col;
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    vec2 uv = (fragCoord-.5 * iResolution.xy) / iResolution.y;
+
+    Camera camera = getCamera(uv);
+    
+    vec3 ro = camera.position; 
+    vec3 rd = camera.direction;
+    float reflectivity = 0.;
+    vec4 difuse = render(ro, rd, reflectivity);
+    vec4 filt = vec4(1.);
+    
+    const int MAX_BOUNCES = 3;
+    
+    vec4 reflection = vec4(0.);
+    
+    for(int i = 0; i < MAX_BOUNCES; i++){
+        filt *= reflectivity;
+        vec4 bounce = filt * render(ro, rd, reflectivity);
+        difuse += bounce; 
+    }
+    
+    fragColor = difuse;
 }
