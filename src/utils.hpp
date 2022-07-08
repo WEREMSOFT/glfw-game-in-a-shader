@@ -112,6 +112,8 @@ static int createShadertoyFSFromFile(const char *fileName, unsigned int *vertexS
                                "uniform sampler2D iChannel2;"
                                "uniform sampler2D iChannel3;"
                                "uniform samplerCube iChannel4;"
+                               "uniform vec3 iHeroPosition;"
+                               "uniform float iZoom;"
                                "uniform int iFrame;\n";
 
     std::string shaderFooter = "\nvoid main(){\n"

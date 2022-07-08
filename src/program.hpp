@@ -7,6 +7,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#include <math.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -20,6 +21,13 @@ struct vec2
 {
     double x, y;
 };
+
+struct vec3
+{
+    double x, y, z;
+};
+
+float zoom = 1.0;
 
 class Program
 {
@@ -59,13 +67,25 @@ public:
             exit(-1);
         }
 
+        glfwSetScrollCallback(window, scrollCallback);
+
         loadAssets();
         imGuiInit();
+    }
+
+    static void scrollCallback(GLFWwindow *window, double xOffset, double yOffset)
+    {
+        zoom += yOffset * 0.5;
+        zoom = fmax(0.2, zoom);
     }
 
     void runMainLoop(void)
     {
         vec2 mousePos, mouseDelta, mouseOldPos, mousePosAdj;
+        vec3 heroPosition = {0};
+        vec3 heroSpeed = {0};
+
+        float heroAccel = 0.01;
 
         float vertices[] = {
             1.0f, 1.0f, 0.0f, 1.0f, 1.0f,   // top right
@@ -104,16 +124,44 @@ public:
         GLint mouseUniformLocation = glGetUniformLocation(shaderProgram, "iMouse");
         GLint timeUniformLocation = glGetUniformLocation(shaderProgram, "iTime");
         GLint uniformScreenSizeLocation = glGetUniformLocation(shaderProgram, "iResolution");
+        GLint uniformHeroPositionLocation = glGetUniformLocation(shaderProgram, "iHeroPosition");
+        GLint uniformZoomLocation = glGetUniformLocation(shaderProgram, "iZoom");
 
         bool isFirstRun = true;
 
         while (!glfwWindowShouldClose(window))
         {
-
+            float time = glfwGetTime();
             if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
             {
                 glfwSetWindowShouldClose(window, true);
             }
+
+            if (glfwGetKey(window, GLFW_KEY_LEFT))
+            {
+                heroSpeed.x -= heroAccel * time;
+            }
+
+            if (glfwGetKey(window, GLFW_KEY_RIGHT))
+            {
+                heroSpeed.x += heroAccel * time;
+            }
+
+            if (glfwGetKey(window, GLFW_KEY_DOWN))
+            {
+                heroSpeed.z -= heroAccel * time;
+            }
+
+            if (glfwGetKey(window, GLFW_KEY_UP))
+            {
+                heroSpeed.z += heroAccel * time;
+            }
+
+            heroPosition.x += heroSpeed.x;
+            heroPosition.z += heroSpeed.z;
+
+            heroSpeed.x *= 0.9;
+            heroSpeed.z *= 0.9;
 
             frame++;
 
@@ -129,7 +177,10 @@ public:
             glBindTexture(GL_TEXTURE_CUBE_MAP, texture[4]);
             glUniform3f(uniformScreenSizeLocation, Program::screenWidth, Program::screenHeight, 1.0);
 
+            glUniform3f(uniformHeroPositionLocation, heroPosition.x, heroPosition.y, heroPosition.z);
+
             glUniform1f(timeUniformLocation, glfwGetTime());
+            glUniform1f(uniformZoomLocation, zoom);
 
             mouseOldPos = mousePos;
             glfwGetCursorPos(window, &mousePos.x, &mousePos.y);

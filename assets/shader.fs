@@ -85,7 +85,7 @@ float getDistance(vec3 p)
     vec3 sphere6 = vec3(sin(iTime + angle) * r, 1., cos(iTime + angle) * r);
     float ds6 = getDist2Sphere(p - sphere6, sphereRadius);
 
-    float boxDistance = getDist2Box(p - vec3(0., 1., 0.), vec3(.75), -iTime);
+    float boxDistance = getDist2Box(p - iHeroPosition, vec3(.75), -iTime);
 
     float fussionRatio = .5;
 
@@ -94,9 +94,9 @@ float getDistance(vec3 p)
 
 int getMaterial(vec3 p)
 {
-    float floorD = p.y + 4.;
-
     float r = R;
+
+    float floorD = p.y + 4.;
 
     float angle = 0.;
     float angleIncrement = TAU / 6.;
@@ -130,7 +130,7 @@ int getMaterial(vec3 p)
     vec3 sphere6 = vec3(sin(iTime + angle) * r, 1., cos(iTime + angle) * r);
     float ds6 = getDist2Sphere(p - sphere6, sphereRadius);
 
-    float boxDistance = getDist2Box(p - vec3(0., 1., 0.), vec3(.75), -iTime);
+    float boxDistance = getDist2Box(p - iHeroPosition, vec3(.75), -iTime);
 
     float d = min(min(min(min(min(min(min(ds, floorD), boxDistance), ds2), ds3), ds4), ds5), ds6);
 
@@ -292,7 +292,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     vec2 uv = (fragCoord - .5 * iResolution.xy) / iResolution.y;
 
-    Camera camera = getCamera(uv, 2.);
+    Camera camera = getCamera(uv, iZoom);
 
     vec3 ro = camera.position;
     vec3 rd = camera.direction;
